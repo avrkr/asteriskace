@@ -3,6 +3,7 @@ import axios from 'axios';
 import { toast } from 'react-hot-toast';
 import { Video, Upload, Trash2, Calendar, FileVideo, Play } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { upload } from '@vercel/blob/client';
 
 const VideoList = () => {
     const [videos, setVideos] = useState([]);
@@ -55,15 +56,22 @@ const VideoList = () => {
         e.preventDefault();
         if (!file) return toast.error('Please select a video file');
 
-        const data = new FormData();
-        data.append('video', file);
-        Object.keys(formData).forEach(key => data.append(key, formData[key]));
-
         setLoading(true);
         try {
-            await axios.post('/api/admin/videos', data, {
-                headers: { 'Content-Type': 'multipart/form-data' }
+            // 1. Upload to Vercel Blob directly from client
+            const newBlob = await upload(file.name, file, {
+                access: 'public',
+                handleUploadUrl: '/api/admin/upload/blob',
             });
+
+            // 2. Save metadata to Mongo
+            await axios.post('/api/admin/videos', {
+                ...formData,
+                videoUrl: newBlob.url,
+                mimetype: file.type,
+                size: file.size
+            });
+
             toast.success('Video uploaded successfully!');
             setFormData({
                 title: '',
@@ -77,7 +85,8 @@ const VideoList = () => {
             setFile(null);
             fetchData();
         } catch (error) {
-            toast.error(error.response?.data?.message || 'Upload failed');
+            console.error('Upload error:', error);
+            toast.error(error.response?.data?.message || 'Upload failed. Ensure you have VERCEL_BLOB_READ_WRITE_TOKEN set.');
         } finally {
             setLoading(false);
         }
