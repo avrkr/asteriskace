@@ -62,6 +62,9 @@ const VideoList = () => {
             const newBlob = await upload(file.name, file, {
                 access: 'public',
                 handleUploadUrl: '/api/admin/upload/blob',
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                }
             });
 
             // 2. Save metadata to Mongo
